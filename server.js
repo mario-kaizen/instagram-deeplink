@@ -3,11 +3,23 @@ import express from 'express';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Convert Instagram shortcode to numeric media ID
+// Instagram uses a custom base64 alphabet for shortcodes
+function shortcodeToMediaId(shortcode) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  let id = BigInt(0);
+  for (const char of shortcode) {
+    id = id * 64n + BigInt(alphabet.indexOf(char));
+  }
+  return id.toString();
+}
+
 app.get('/reel/:reelId', (req, res) => {
   const reelId = req.params.reelId;
+  const mediaId = shortcodeToMediaId(reelId);
   const webUrl = `https://www.instagram.com/reel/${reelId}/`;
-  const appUrl = `instagram://reel/${reelId}/`;
-  const intentUrl = `intent://reel/${reelId}/#Intent;package=com.instagram.android;scheme=https;S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
+  const iosDeepLink = `instagram://media?id=${mediaId}`;
+  const intentUrl = `intent://www.instagram.com/reel/${reelId}/#Intent;package=com.instagram.android;scheme=https;S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
 
   res.send(`<!DOCTYPE html>
 <html>
@@ -53,20 +65,24 @@ app.get('/reel/:reelId', (req, res) => {
   </style>
   <script>
     (function() {
-      var webUrl = '${webUrl}';
+      var iosDeepLink = '${iosDeepLink}';
       var intentUrl = '${intentUrl}';
+      var webUrl = '${webUrl}';
 
       var ua = navigator.userAgent.toLowerCase();
+      var isIOS = /iphone|ipad|ipod/.test(ua);
       var isAndroid = /android/.test(ua);
 
-      // Universal Links: redirecting to the instagram.com URL from a real browser
-      // triggers iOS/Android to open the app directly to the reel.
-      // The custom scheme (instagram://) only opens the home screen.
-      if (isAndroid) {
+      if (isIOS) {
+        // instagram://media?id=NUMERIC_ID opens the specific reel in the app
+        window.location = iosDeepLink;
+        setTimeout(function() { window.location.replace(webUrl); }, 1500);
+      } else if (isAndroid) {
+        // Android intent with Instagram package
         window.location = intentUrl;
         setTimeout(function() { window.location.replace(webUrl); }, 1500);
       } else {
-        // iOS + Desktop: instagram.com Universal Link handles app open
+        // Desktop: go straight to web
         window.location.replace(webUrl);
       }
     })();
