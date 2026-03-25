@@ -3,7 +3,9 @@ import express from 'express';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.get('/reel/:reelId', (req, res) => {
+app.get('/reel/:reelId(*)', (req, res) => {
+  // Strip trailing slashes from reelId
+  req.params.reelId = req.params.reelId.replace(/\/+$/, '');
   const reelId = req.params.reelId;
   const webUrl = `https://www.instagram.com/reel/${reelId}/`;
   const appUrl = `instagram://reel/${reelId}/`;
