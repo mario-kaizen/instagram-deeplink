@@ -53,29 +53,22 @@ app.get('/reel/:reelId', (req, res) => {
   </style>
   <script>
     (function() {
-      var reelId = '${reelId}';
       var webUrl = '${webUrl}';
-      var appUrl = '${appUrl}';
       var intentUrl = '${intentUrl}';
 
       var ua = navigator.userAgent.toLowerCase();
-      var isMobile = /iphone|ipad|ipod|android/.test(ua);
       var isAndroid = /android/.test(ua);
 
-      if (!isMobile) {
-        window.location.replace(webUrl);
-        return;
-      }
-
+      // Universal Links: redirecting to the instagram.com URL from a real browser
+      // triggers iOS/Android to open the app directly to the reel.
+      // The custom scheme (instagram://) only opens the home screen.
       if (isAndroid) {
         window.location = intentUrl;
+        setTimeout(function() { window.location.replace(webUrl); }, 1500);
       } else {
-        window.location = appUrl;
-      }
-
-      setTimeout(function() {
+        // iOS + Desktop: instagram.com Universal Link handles app open
         window.location.replace(webUrl);
-      }, 1500);
+      }
     })();
   </script>
 </head>
