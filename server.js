@@ -183,8 +183,18 @@ function buildLinkClickId(siteID, packageID) {
 
 function renderTrampoline(res, siteID, packageID, siteName, packageName) {
   const linkClickId = buildLinkClickId(siteID, packageID);
-  const appUrl = `hapana://open?link_click_id=${linkClickId}`;
-  const intentUrl = `intent://open?link_click_id=${linkClickId}#Intent;package=com.hapana.strongpilates;scheme=hapana;S.browser_fallback_url=${encodeURIComponent(PLAY_STORE)};end`;
+  const encodedSiteID = encodeURIComponent(siteID);
+  const encodedPkgID = encodeURIComponent(packageID);
+
+  // Strategy: try 3 schemes in sequence on iOS
+  // 1. Plain query params on hapana://open (app's own handler)
+  // 2. hapana://packageDetail with params (alternate path)
+  // 3. Branch link_click_id format (Branch SDK handler)
+  const scheme1 = `hapana://open?screen=packageDetail&packageID=${encodedPkgID}&siteID=${encodedSiteID}`;
+  const scheme2 = `hapana://packageDetail?packageID=${encodedPkgID}&siteID=${encodedSiteID}`;
+  const scheme3 = `hapana://open?link_click_id=${linkClickId}`;
+
+  const intentUrl = `intent://open?packageID=${encodedPkgID}&siteID=${encodedSiteID}&screen=packageDetail#Intent;package=com.hapana.strongpilates;scheme=hapana;S.browser_fallback_url=${encodeURIComponent(PLAY_STORE)};end`;
   const displayName = siteName || 'STRONG Pilates';
   const displayPkg = packageName || 'package';
 
@@ -221,18 +231,35 @@ function renderTrampoline(res, siteID, packageID, siteName, packageName) {
       text-decoration: none; padding: 12px 20px; border-radius: 8px;
       font-size: 14px; font-weight: 600;
     }
+    .debug { font-size: 11px; color: #555; margin-top: 20px; word-break: break-all; }
   </style>
   <script>
     (function() {
-      var appUrl = ${JSON.stringify(appUrl)};
+      var schemes = [
+        ${JSON.stringify(scheme1)},
+        ${JSON.stringify(scheme2)},
+        ${JSON.stringify(scheme3)}
+      ];
       var intentUrl = ${JSON.stringify(intentUrl)};
       var ua = navigator.userAgent.toLowerCase();
       var isIOS = /iphone|ipad|ipod/.test(ua);
       var isAndroid = /android/.test(ua);
 
       if (isIOS) {
-        window.location = appUrl;
-        setTimeout(function() { window.location.replace(${JSON.stringify(IOS_STORE)}); }, 2000);
+        // Try first scheme; if app doesn't open in 1.5s, try next
+        var attempt = 0;
+        function tryScheme() {
+          if (attempt < schemes.length) {
+            window.location = schemes[attempt];
+            attempt++;
+            setTimeout(function() {
+              if (!document.hidden) tryScheme();
+            }, 1500);
+          } else {
+            window.location.replace(${JSON.stringify(IOS_STORE)});
+          }
+        }
+        tryScheme();
       } else if (isAndroid) {
         window.location = intentUrl;
       } else {
