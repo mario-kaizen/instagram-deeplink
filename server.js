@@ -107,6 +107,25 @@ const HAPANA_KEY = process.env.HAPANA_API_KEY || '';
 const IOS_STORE = 'https://apps.apple.com/au/app/strong-pilates/id1663390750';
 const PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.hapana.strongpilates';
 
+// Branch long link → opens the STRONG app to a package's detail screen.
+// This is the WORKING method (Branch Universal Link on strongpilatesmobi.app.link,
+// a domain the app trusts). The hapana:// scheme trampoline below is dead on iOS
+// (the app registers no custom scheme) — these routes now 302 here instead.
+function buildBranchLongLink(siteID, packageID) {
+  return 'https://strongpilatesmobi.app.link/?$canonical_identifier=packageDetail'
+    + '&$deeplink_path=packageDetail'
+    + `&packageID=${encodeURIComponent(packageID)}`
+    + `&siteID=${encodeURIComponent(siteID)}`;
+}
+
+// Curated pretty short links for studios the Public API key can't enumerate
+// (different tenant / presale — e.g. San Juan PH). Tokens come from the funnel
+// config (config.json hapana.widgetId = siteID, vipTiers[].packageId = token).
+const LINKS = {
+  'sj-vip':          { siteID: 'ZU9lSnllTWNIT3E2UUVlUXkzbEc1dz09', packageID: 'VHBML1VqTkJFaTd1OHVMRGlBNnREUT09', label: 'San Juan VIP Unlimited' },
+  'sj-vip-2session': { siteID: 'ZU9lSnllTWNIT3E2UUVlUXkzbEc1dz09', packageID: 'QXlGaGROK0dUbjY3TXlMTkZ4UDhYQT09', label: 'San Juan VIP 2 Session' },
+};
+
 // In-memory cache: slug → { siteID, siteName, packages: [{packageID, name, slug}] }
 let siteCache = new Map();
 let cacheReady = false;
@@ -293,14 +312,14 @@ app.get('/strong/buy/:site/:package', async (req, res) => {
   if (!site) return res.status(404).send('Studio not found');
   const pkg = site.packages?.find(p => p.slug === req.params.package);
   if (!pkg) return res.status(404).send(`Package not found at ${site.siteName}. Available: ${(site.packages || []).map(p => p.slug).join(', ')}`);
-  renderTrampoline(res, site.siteID, pkg.packageID, site.siteName, pkg.name);
+  res.redirect(302, buildBranchLongLink(site.siteID, pkg.packageID));
 });
 
 // Route 2: Direct encrypted IDs — /strong/buy?siteID=...&packageID=...
 app.get('/strong/buy', (req, res) => {
   const { siteID, packageID } = req.query;
   if (!siteID || !packageID) return res.status(400).send('Missing siteID or packageID');
-  renderTrampoline(res, siteID, packageID);
+  res.redirect(302, buildBranchLongLink(siteID, packageID));
 });
 
 // Route 3: List all sites — /strong/sites
@@ -337,6 +356,13 @@ if (HAPANA_KEY) {
 
 // Health check
 app.get('/health', (req, res) => res.json({ ok: true }));
+
+// Pretty short links: goto.strongpilates.co/sj-vip -> opens the app to that package
+app.get('/:slug', (req, res, next) => {
+  const link = LINKS[req.params.slug];
+  if (!link) return next();
+  res.redirect(302, buildBranchLongLink(link.siteID, link.packageID));
+});
 
 // Root redirect
 app.get('/', (req, res) => res.redirect('https://kaizencollective.com.au'));
