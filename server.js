@@ -321,6 +321,14 @@ app.get('/strong/sites/:site/packages', async (req, res) => {
   res.json({ siteName: site.siteName, siteID: site.siteID, packages: site.packages });
 });
 
+// TEST: plain HTTP 302 redirect to a Branch long link.
+// Question: does a domain redirect into the Branch Universal Link open the app
+// on iOS, or land the user on Branch's web page? (San Juan VIP Unlimited)
+app.get('/sj-test', (req, res) => {
+  const branchLong = 'https://strongpilatesmobi.app.link/?$canonical_identifier=packageDetail&$deeplink_path=packageDetail&packageID=VHBML1VqTkJFaTd1OHVMRGlBNnREUT09&siteID=ZU9lSnllTWNIT3E2UUVlUXkzbEc1dz09';
+  res.redirect(302, branchLong);
+});
+
 // Boot cache on startup
 if (HAPANA_KEY) {
   refreshCache();
