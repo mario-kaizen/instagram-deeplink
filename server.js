@@ -99,6 +99,95 @@ app.get('/reel/:reelId', (req, res) => {
 </html>`);
 });
 
+// Profile deep link — opens an Instagram profile in the native app.
+// iOS: instagram://user?username=USERNAME is the supported profile scheme.
+// Android: intent:// on the /_u/ path that the IG app handles.
+// Desktop / no app: falls back to the web profile after 1.5s.
+app.get('/profile/:username', (req, res) => {
+  const username = (req.params.username || '').replace(/^@/, '');
+  if (!/^[A-Za-z0-9._]+$/.test(username)) {
+    return res.status(400).send('Invalid Instagram username');
+  }
+  const webUrl = `https://www.instagram.com/${username}/`;
+  const iosDeepLink = `instagram://user?username=${username}`;
+  const intentUrl = `intent://instagram.com/_u/${username}/#Intent;package=com.instagram.android;scheme=https;S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
+
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Opening Instagram...</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fafafa;
+      color: #262626;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      padding: 20px;
+    }
+    .container { max-width: 360px; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #dbdbdb;
+      border-top-color: #262626;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    h1 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    p { font-size: 14px; color: #8e8e8e; margin-bottom: 20px; }
+    a {
+      display: inline-block;
+      background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+      color: white;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+  </style>
+  <script>
+    (function() {
+      var iosDeepLink = '${iosDeepLink}';
+      var intentUrl = '${intentUrl}';
+      var webUrl = '${webUrl}';
+
+      var ua = navigator.userAgent.toLowerCase();
+      var isIOS = /iphone|ipad|ipod/.test(ua);
+      var isAndroid = /android/.test(ua);
+
+      if (isIOS) {
+        // instagram://user?username=USERNAME opens the profile in the app
+        window.location = iosDeepLink;
+        setTimeout(function() { window.location.replace(webUrl); }, 1500);
+      } else if (isAndroid) {
+        window.location = intentUrl;
+        setTimeout(function() { window.location.replace(webUrl); }, 1500);
+      } else {
+        window.location.replace(webUrl);
+      }
+    })();
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <h1>Opening Instagram</h1>
+    <p>You should be redirected to the Instagram app automatically.</p>
+    <a href="${webUrl}">Open in Browser Instead</a>
+  </div>
+</body>
+</html>`);
+});
+
 // ---------------------------------------------------------------------------
 // STRONG Pilates deep links — reverse-engineered from Branch.io + Hapana API
 // ---------------------------------------------------------------------------
